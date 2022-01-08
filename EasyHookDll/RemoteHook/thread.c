@@ -1030,6 +1030,53 @@ Example:
 
 
 
+EASYHOOK_NT_EXPORT RhUnloadLibrary(
+    ULONG InTargetPID,
+    ULONG64 hModule)
+{
+    HANDLE					hProc = NULL;
+    HANDLE					hRemoteThread = NULL;
+    NTSTATUS				NtStatus;
+    PVOID                   hFreeLibrary;
+
+    if (InTargetPID == GetCurrentProcessId())
+        THROW(STATUS_NOT_SUPPORTED, L"For stability reasons it is not supported to inject into the calling process.");
+
+    // open target process
+    if ((hProc = OpenProcess(PROCESS_ALL_ACCESS, FALSE, InTargetPID)) == NULL)
+    {
+        if (GetLastError() == ERROR_ACCESS_DENIED)
+            THROW(STATUS_ACCESS_DENIED, L"Unable to open target process. Consider using a system service.")
+        else
+            THROW(STATUS_NOT_FOUND, L"The given target process does not exist!");
+    }
+    hFreeLibrary = (PVOID)GetRemoteFuncAddress(InTargetPID, hProc, "kernel32.dll", "FreeLibrary");
+    
+    if (!hFreeLibrary)
+    {
+        THROW(STATUS_NOT_FOUND, L"Couldn't find FreeLibrary function in remote process.");
+    }
+
+    DWORD64 remoteModuleHandle = hModule;
+
+    if ((hRemoteThread = CreateRemoteThread(hProc, NULL, 0, (LPTHREAD_START_ROUTINE)hFreeLibrary, (LPVOID)remoteModuleHandle, 0, NULL)) == NULL)
+        THROW(STATUS_ACCESS_DENIED, L"Unable to create remote hFreeLibrary thread.");
+
+    RETURN;
+
+THROW_OUTRO:
+FINALLY_OUTRO:
+    {
+        // release resources
+        if (hProc != NULL)
+            CloseHandle(hProc);
+
+        if (hRemoteThread != NULL)
+            CloseHandle(hRemoteThread);
+
+        return NtStatus;
+    }
+}
 
 
 EASYHOOK_NT_EXPORT RhInjectLibrary(

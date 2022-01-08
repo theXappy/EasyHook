@@ -1,4 +1,4 @@
-﻿// EasyHook (File: EasyHook\DllImport.cs)
+// EasyHook (File: EasyHook\DllImport.cs)
 //
 // Copyright (c) 2009 Christoph Husse & Copyright (c) 2015 Justin Stenning
 //
@@ -403,6 +403,24 @@ namespace EasyHook
                 OutNameBuffer,
                 InBufferSize,
                 out OutRequiredSize);
+        }
+
+        /*
+           Injection support API.
+        */
+        [UnmanagedFunctionPointer(CallingConvention.StdCall, CharSet = CharSet.Unicode)]
+        delegate Int32 RhUnloadLibrary_Delegate(
+            Int32 InTargetPID,
+            Int64 hModule);
+        public static Int32 RhUnloadLibrary(
+            Int32 InTargetPID,
+            Int64 hModule)
+        {
+            var method = GetDelegate<RhUnloadLibrary_Delegate>(nameof(RhUnloadLibrary));
+            return method.Invoke(
+                InTargetPID,
+                hModule
+            );
         }
 
         /*
@@ -862,6 +880,12 @@ namespace EasyHook
         {
             Force( NativeAPI_EasyHook.RhInjectLibrary(InTargetPID, InWakeUpTID, InInjectionOptions,
                 InLibraryPath_x86, InLibraryPath_x64, InPassThruBuffer, InPassThruSize));
+        }
+        public static Int32 RhUnloadLibraryEx(
+            Int32 InTargetPID,
+            Int64 hModule)
+        {
+            return NativeAPI_EasyHook.RhUnloadLibrary(InTargetPID, hModule);
         }
 
         public static void RtlCreateSuspendedProcess(
